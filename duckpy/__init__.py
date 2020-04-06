@@ -1,51 +1,49 @@
-import random
+import re
 import secrets
-import certifi
-import urllib3
-from urllib.parse import unquote
-from bs4 import BeautifulSoup
 
+import aiohttp
 
-ddg_url = 'https://duckduckgo.com/html'
+ddg_url = "https://duckduckgo.com/html"
+
+user_agents = [
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36",
+    "Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:74.0) Gecko/20100101 Firefox/74.0",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 13_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.1 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Linux; Android 9; SM-S767VL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Mobile Safari/537.36",
+]
 
 
 class Client:
-    def __init__(self, proxies=None, random_ua=True):
-        if isinstance(proxies, type(None)):
-            self.proxies = None
-        elif isinstance(proxies, str):
-            self.proxies = [proxies]
-        elif isinstance(proxies, list):
-            self.proxies = proxies
+    def __init__(self, session: aiohttp.ClientSession = None):
+        self.session = session or aiohttp.ClientSession()
 
-        self.http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
-
-        self.random_ua = random_ua
-
-    def search(self, query, exact_match=False, **kwargs):
+    async def search(self, query, exact_match=False):
         if exact_match:
-            query = '"%s"' % query
-        if self.proxies:
-            proxy = random.choice(self.proxies)
-            http = urllib3.ProxyManager(proxy)
-        else:
-            http = self.http
-        headers = {'User-Agent': secrets.token_hex(5) + '/1.0'} if self.random_ua else None
+            query = f'"{query}"'
+        headers = {"User-Agent": secrets.choice(user_agents)}
 
-        r = http.request('GET', ddg_url, fields=dict(q=query, **kwargs), headers=headers)
+        async with self.session.get(ddg_url, params={"q": query}, headers=headers) as r:
+            data = await r.text()
 
-        return parse_page(r.data)
+        return parse_page(data)
+
+    async def close(self):
+        await self.session.close()
 
 
 def parse_page(html):
-    soup = BeautifulSoup(html, "html.parser")
+    regex1 = r'<a rel="nofollow" class="result__a" href="(.*)">(.*)</a>'
     results = []
-    for i in soup.find_all('div', {'class': 'links_main'}):
-        try:
-            title = i.h2.a.text
-            description = i.find('a', {'class': 'result__snippet'}).text
-            url = i.find('a', {'class': 'result__url'}).get('href')
-            results.append(dict(title=title, description=description, url=unquote(url[15:])))
-        except AttributeError:
-            pass
+    for match in re.finditer(regex1, html, re.MULTILINE):
+        link = match.group(1)
+        text = match.group(2)
+        results.append({"link": link, "title": text})
+    regex2 = r"<img class=\"result__icon__img\" width=\"16\" height=\"16\" alt=\"\"\s+src=\"(.*)\" name=\"(.*)\" />"
+    for idx, match in enumerate(re.finditer(regex2, html, re.MULTILINE)):
+        link = match.group(1)
+        results[idx]["image"] = link
+    regex3 = r"<a class=\"result__snippet\" href=\"(.*)\">(.*)</a>"
+    for idx, match in enumerate(re.finditer(regex3, html, re.MULTILINE)):
+        summary = match.group(2)
+        results[idx]["summary"] = summary
     return results
