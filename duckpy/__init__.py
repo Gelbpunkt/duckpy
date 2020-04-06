@@ -30,6 +30,9 @@ class Client:
     async def close(self):
         await self.session.close()
 
+def strip_html(text):
+    return re.sub("<[^<]+?>", "", text)
+
 
 def parse_page(html):
     regex1 = r'<a rel="nofollow" class="result__a" href="(.*)">(.*)</a>'
@@ -37,7 +40,7 @@ def parse_page(html):
     for match in re.finditer(regex1, html, re.MULTILINE):
         link = match.group(1)
         text = match.group(2)
-        results.append({"link": link, "title": text})
+        results.append({"link": link, "title": strip_html(text)})
     regex2 = r"<img class=\"result__icon__img\" width=\"16\" height=\"16\" alt=\"\"\s+src=\"(.*)\" name=\"(.*)\" />"
     for idx, match in enumerate(re.finditer(regex2, html, re.MULTILINE)):
         link = match.group(1)
@@ -45,5 +48,5 @@ def parse_page(html):
     regex3 = r"<a class=\"result__snippet\" href=\"(.*)\">(.*)</a>"
     for idx, match in enumerate(re.finditer(regex3, html, re.MULTILINE)):
         summary = match.group(2)
-        results[idx]["summary"] = summary
+        results[idx]["summary"] = strip_html(summary)
     return results
