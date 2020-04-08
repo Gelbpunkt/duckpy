@@ -14,4 +14,5 @@ setuptools.setup(
     description="A simple module for searching on DuckDuckGo",
     long_description=readme,
     long_description_content_type="text/markdown",
+    install_requires=["aiohttp"],
 )
