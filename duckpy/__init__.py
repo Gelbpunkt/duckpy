@@ -44,7 +44,7 @@ def parse_page(html):
     regex2 = r"<img class=\"result__icon__img\" width=\"16\" height=\"16\" alt=\"\"\s+src=\"(.*)\" name=\"(.*)\" />"
     for idx, match in enumerate(re.finditer(regex2, html, re.MULTILINE)):
         link = match.group(1)
-        results[idx]["image"] = link
+        results[idx]["image"] = f"https:{link}.png"
     regex3 = r"<a class=\"result__snippet\" href=\"(.*)\">(.*)</a>"
     for idx, match in enumerate(re.finditer(regex3, html, re.MULTILINE)):
         summary = match.group(2)
