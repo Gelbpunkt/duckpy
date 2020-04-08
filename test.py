@@ -7,7 +7,7 @@ client = Client()
 
 async def get_results():
     results = await client.search("tiger")
-    print(results)
+    print(results[0])
     await client.close()
 
 
